@@ -65,7 +65,7 @@ class NvidiaAIProvider(AIProvider):
         )
         self.model = model
 
-    def detect_intent(self, message: str, context: dict) -> IntentBatch:
+    def detect_intent(self, message: str, context: dict) -> IntentResult:
         system_prompt = SYSTEM_INTENT_TEMPLATE.format(
             fecha_hoy=context.get("fecha_hoy", datetime.now().strftime("%Y-%m-%d")),
             dia_semana=context.get("dia_semana", datetime.now().strftime("%A")),
