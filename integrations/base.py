@@ -35,7 +35,7 @@ class Tool(ABC):
         ...
     
     @abstractmethod
-    def execute(self, params: Dict[str, Any]) -> str:
+    def execute(self, params: Dict[str, Any]) -> list[str | bool]:
         """
         Execute the tool with given parameters.
         
@@ -43,7 +43,7 @@ class Tool(ABC):
             params: Dictionary of parameters for the tool
             
         Returns:
-            Human-readable response string
+            List containing a human-readable response string and a boolean indicating success
         """
         ...
 

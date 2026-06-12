@@ -55,7 +55,15 @@ class MessageProcessor:
             
             # Execute the tool
             result = tool.execute(tool_call.params)
-            logger.info(f"Tool result: {result}")
+            r_message = next((x for x in result if isinstance(x, str)), "")
+            success = next((x for x in result if isinstance(x, bool)), False)
+
+            logger.info(f"Tool result: {r_message}")
+            if success is False:
+                logger.warning(f"Tool execution failed: {r_message}")
+                return r_message
+            result = self.ai.chat(r_message, system_prompt)  # Post-process tool response with AI for better formatting
+            logger.info(f"Final response: {result}")
             return result
             
         except Exception as e:

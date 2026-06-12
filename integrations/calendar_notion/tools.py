@@ -83,13 +83,13 @@ class QueryEventsToolNotion(Tool):
     def required_params(self) -> list[str]:
         return ["date_start", "date_end"]
     
-    def execute(self, params: Dict[str, Any]) -> str:
+    def execute(self, params: Dict[str, Any]) -> list[str | bool]:
         try:
             date_start = params.get("date_start")
             date_end = params.get("date_end")
             
             if not date_start or not date_end:
-                return "❌ Error: date_start and date_end are required"
+                return [f"❌ Error: date_start and date_end are required", False]
             
             # Convert relative dates to ISO 8601 format
             date_start = _convert_relative_date(date_start)
@@ -102,7 +102,7 @@ class QueryEventsToolNotion(Tool):
             events = self.calendar.query_events(date_start, date_end)
             
             if not events:
-                return f"📅 No events found between {date_start} and {date_end}"
+                return [f"📅 No events found between {date_start} and {date_end}", False]
             
             response = f"📅 Events ({len(events)} found):\n"
             for event in events:
@@ -120,10 +120,10 @@ class QueryEventsToolNotion(Tool):
                 if event.description:
                     response += f"\n  _{event.description}_"
             
-            return response
+            return [response, True]
         except Exception as e:
             logger.error(f"Error querying events: {e}")
-            return f"❌ Error querying events: {str(e)}"
+            return [f"❌ Error querying events: {str(e)}", False]
 
 
 class CreateEventToolNotion(Tool):
@@ -144,13 +144,13 @@ class CreateEventToolNotion(Tool):
     def required_params(self) -> list[str]:
         return ["title", "date_start"]
     
-    def execute(self, params: Dict[str, Any]) -> str:
+    def execute(self, params: Dict[str, Any]) -> list[str | bool]:
         try:
             title = params.get("title")
             date_start = params.get("date_start")
             
             if not title or not date_start:
-                return "❌ Error: title and date_start are required"
+                return [f"❌ Error: title and date_start are required", False]
             
             # Convert relative dates to ISO 8601 format
             date_start = _convert_relative_date(date_start)
@@ -184,10 +184,10 @@ class CreateEventToolNotion(Tool):
             if event.location:
                 location_str = f" 📍 {event.location}"
             
-            return f"✅ Event created: **{event.title}** on {event.date_start}{time_str}{location_str}"
+            return [f"✅ Event created: **{event.title}** on {event.date_start}{time_str}{location_str}", True]
         except Exception as e:
             logger.error(f"Error creating event: {e}")
-            return f"❌ Error creating event: {str(e)}"
+            return [f"❌ Error creating event: {str(e)}", False]
 
 
 class UpdateEventToolNotion(Tool):
@@ -208,12 +208,12 @@ class UpdateEventToolNotion(Tool):
     def required_params(self) -> list[str]:
         return ["event_id"]
     
-    def execute(self, params: Dict[str, Any]) -> str:
+    def execute(self, params: Dict[str, Any]) -> list[str | bool]:
         try:
             event_id = params.get("event_id")
             
             if not event_id:
-                return "❌ Error: event_id is required"
+                return [f"❌ Error: event_id is required", False]
             
             # All other params are optional
             title = params.get("title")
@@ -248,10 +248,10 @@ class UpdateEventToolNotion(Tool):
                 if event.time_end:
                     time_str += f"-{event.time_end}"
             
-            return f"✅ Event updated: **{event.title}** on {event.date_start}{time_str}"
+            return [f"✅ Event updated: **{event.title}** on {event.date_start}{time_str}", True]
         except Exception as e:
             logger.error(f"Error updating event: {e}")
-            return f"❌ Error updating event: {str(e)}"
+            return [f"❌ Error updating event: {str(e)}", False]
 
 
 class DeleteEventToolNotion(Tool):
@@ -272,18 +272,18 @@ class DeleteEventToolNotion(Tool):
     def required_params(self) -> list[str]:
         return ["event_id"]
     
-    def execute(self, params: Dict[str, Any]) -> str:
+    def execute(self, params: Dict[str, Any]) -> list[str | bool]:
         try:
             event_id = params.get("event_id")
             
             if not event_id:
-                return "❌ Error: event_id is required"
+                return [f"❌ Error: event_id is required", False]
             
             self.calendar.delete_event(event_id=event_id)
-            return f"✅ Event deleted successfully"
+            return [f"✅ Event deleted successfully", True]
         except Exception as e:
             logger.error(f"Error deleting event: {e}")
-            return f"❌ Error deleting event: {str(e)}"
+            return [f"❌ Error deleting event: {str(e)}", False]
 
 
 class ChatTool(Tool):
@@ -304,9 +304,9 @@ class ChatTool(Tool):
     def required_params(self) -> list[str]:
         return []
     
-    def execute(self, params: Dict[str, Any]) -> str:
+    def execute(self, params: Dict[str, Any]) -> list[str | bool]:
         """Execute chat - the message is handled by the user's request context."""
         # This tool is used when the user's message doesn't match calendar tools
         # The actual message should be available from the context
-        return "Chat response ready (message context required)"
+        return ["Chat response ready (message context required)", True]
 
