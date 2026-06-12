@@ -102,7 +102,7 @@ class QueryEventsToolNotion(Tool):
             events = self.calendar.query_events(date_start, date_end)
             
             if not events:
-                return [f"📅 No events found between {date_start} and {date_end}", False]
+                return [f"📅 No events found between {date_start} and {date_end}", True]
             
             response = f"📅 Events ({len(events)} found):\n"
             for event in events:
