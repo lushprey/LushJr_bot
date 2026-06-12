@@ -26,22 +26,42 @@ class MessageProcessor:
         }
 
         try:
-            intent = self.ai.detect_intent(message, context)
+            batch = self.ai.detect_intent(message, context)
             logger.info(f"Intención: {intent}")
         except Exception as e:
             logger.warning(f"Fallo al detectar intención, fallback a chat: {e}")
             return self.ai.chat(message, self._system_chat_prompt())
 
+    responses = []
+    
+    for intent in batch.actions:
+    
         if intent.action == "consultar":
-            return self._handle_query(intent, today)
+            responses.append(
+                self._handle_query(intent, today)
+            )
+    
         elif intent.action == "crear":
-            return self._handle_create(intent, today)
+            responses.append(
+                self._handle_create(intent, today)
+            )
+    
         elif intent.action == "editar":
-            return self._handle_update(intent)
+            responses.append(
+                self._handle_update(intent)
+            )
+    
         elif intent.action == "eliminar":
-            return self._handle_delete(intent)
+            responses.append(
+                self._handle_delete(intent)
+            )
+    
         else:
-            return self._handle_chat(intent, message)
+            responses.append(
+                self._handle_chat(intent, message)
+            )
+    
+    return "\n\n".join(responses)
 
     # ── Handlers ────────────────────────────────────────────────────────────
 
