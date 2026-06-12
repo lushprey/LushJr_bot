@@ -60,8 +60,12 @@ class MessageProcessor:
                 logger.warning(f"Tool falló: {r_message}")
                 return r_message
 
-            # Post-proceso: solo si el resultado es datos crudos 
-            return self.ai.chat(r_message, system_prompt)
+            # Post-proceso: solo si el resultado es datos crudos (ej: JSON de Notion)
+            # Para "crear", "editar", "eliminar" el mensaje ya es legible → devolver directo
+            if tool_call.tool_name == "consultar":
+                return self.ai.chat(r_message, system_prompt)
+            final_message = r_message if r_message else tool_call.params.get("respuesta")
+            return str(final_message)  # crear/editar/eliminar: sin llamada extra
 
         except Exception as e:
             logger.exception(f"Error procesando mensaje: {e}")
