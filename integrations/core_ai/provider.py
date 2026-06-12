@@ -2,12 +2,12 @@
 integrations/core_ai/provider.py
 ─────────────────────────────────
 Implementación de AIProvider usando la API de Nvidia (compatible OpenAI).
-Ahora con soporte para function calling (call_with_tools).
+OPTIMIZADO: una sola llamada por mensaje + streaming para respuesta inmediata.
 """
 import json
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from openai import OpenAI
 
@@ -15,181 +15,127 @@ from integrations.base import AIProvider, IntentResult, Tool, ToolCall
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_INTENT_TEMPLATE = """\
-Tu nombre es LushJr.
-Eres el cerebro de un asistente personal en Telegram conectado a un calendario.
+# Prompt unificado: detecta intención Y genera respuesta en una sola llamada.
+SYSTEM_UNIFIED_TEMPLATE = """\
+Tu nombre es LushJr. Eres un asistente personal en Telegram con acceso a un calendario.
 Hoy es {fecha_hoy} ({dia_semana}).
 
-Tu única tarea es analizar el mensaje del usuario y devolver un JSON con esta estructura exacta:
-
+Analiza el mensaje del usuario y responde con SOLO un JSON con esta estructura:
 {{
-  "accion": "consultar" | "crear" | "editar" | "eliminar" | "chat",
-  "fecha_inicio": "YYYY-MM-DD",
-  "fecha_fin": "YYYY-MM-DD",
-  "hora_inicio": "HH:MM",
-  "hora_fin": "HH:MM",
-  "titulo": "nombre del evento",
-  "lugar": "lugar del evento",
-  "descripcion": "descripción del evento",
-  "event_id": "id de notion si el usuario lo menciona",
-  "respuesta_directa": "texto solo si accion es chat"
+  "tool": "consultar" | "crear" | "editar" | "eliminar" | "chat",
+  "params": {{
+    "fecha_inicio": "YYYY-MM-DD",
+    "fecha_fin": "YYYY-MM-DD",
+    "hora_inicio": "HH:MM",
+    "hora_fin": "HH:MM",
+    "titulo": "nombre del evento",
+    "lugar": "lugar del evento",
+    "descripcion": "descripción",
+    "event_id": "id si el usuario lo menciona",
+    "respuesta": "respuesta directa al usuario"
+  }}
 }}
 
 Reglas:
-- Incluye solo los campos relevantes al mensaje, omite los demás
-- "consultar": el usuario pregunta por eventos
-- "crear": el usuario quiere agendar, agregar o crear un evento
-- "editar": el usuario quiere modificar un evento existente
-- "eliminar": el usuario quiere borrar o cancelar un evento
-- "chat": cualquier otra pregunta o conversación
-- Para fechas relativas usa la fecha de hoy como referencia
-- Para "esta semana" usa fecha_fin = hoy + 6 días
+- Incluye solo los campos relevantes, omite los demás
+- "chat": cualquier conversación que no sea sobre el calendario
+- Siempre incluye "respuesta" con un mensaje directo para el usuario, incluso si usas una herramienta
+- Para fechas relativas usa hoy como referencia
 - Si el usuario dice "a las 3pm" → hora_inicio: "15:00"
-- Si el usuario dice "de 2 a 4" → hora_inicio: "14:00", hora_fin: "16:00"
-- SOLO devuelve el JSON, sin explicaciones ni markdown
+- Si el usuario dice "de 3pm a 5 pm" → hora_inicio: "15:00", hora_fin: "17:00"
+- SOLO devuelve el JSON, sin markdown ni explicaciones
 """
 
 
 class NvidiaAIProvider(AIProvider):
 
-    def __init__(self, api_key: str, model: str = "meta/llama-3.3-70b-instruct"):
+    def __init__(self, api_key: str, model: str = "meta/llama-3.1-8b-instruct"):
         self.client = OpenAI(
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=api_key,
         )
         self.model = model
+        self._system_prompt_cache: dict[str, str] = {}
+
+    def _get_system_prompt(self, base_prompt: str) -> str:
+        """Cachea el system prompt con la fecha del día."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        if today not in self._system_prompt_cache:
+            self._system_prompt_cache.clear()  # limpiar días anteriores
+            self._system_prompt_cache[today] = SYSTEM_UNIFIED_TEMPLATE.format(
+                fecha_hoy=today,
+                dia_semana=datetime.now().strftime("%A"),
+            )
+        return self._system_prompt_cache[today]
 
     def detect_intent(self, message: str, context: dict) -> IntentResult:
-        """Legacy method for backward compatibility."""
-        system_prompt = SYSTEM_INTENT_TEMPLATE.format(
-            fecha_hoy=context.get("fecha_hoy", datetime.now().strftime("%Y-%m-%d")),
-            dia_semana=context.get("dia_semana", datetime.now().strftime("%A")),
-        )
-
-        completion = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message},
-            ],
-            temperature=0.2,
-            max_tokens=300,
-        )
-
-        raw = completion.choices[0].message.content.strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
-
-        data = json.loads(raw)
-        return IntentResult.from_dict(data)
+        """Legacy — mantiene compatibilidad."""
+        tool_call = self.call_with_tools(message, [], "")
+        return IntentResult.from_dict({
+            "accion": tool_call.tool_name,
+            **tool_call.params,
+        })
 
     def chat(self, message: str, system_prompt: str) -> str:
-        """Generate freeform chat response."""
-        completion = self.client.chat.completions.create(
+        """
+        Genera respuesta de chat usando streaming para reducir latencia percibida.
+        Solo se usa cuando processor necesita post-procesar un resultado de tool.
+        """
+        chunks = []
+        with self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message},
             ],
             temperature=0.7,
-            max_tokens=1024,
-        )
-        return completion.choices[0].message.content.strip()
+            max_tokens=512,  # reducido de 1024 — respuestas más concisas
+            stream=True,
+        ) as stream:
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    chunks.append(delta)
+        return "".join(chunks).strip()
 
     def call_with_tools(
         self,
         message: str,
         tools: List[Tool],
-        system_prompt: str
+        system_prompt: str,
     ) -> ToolCall:
         """
-        Call AI with available tools and get structured tool call.
-        
-        The AI will choose which tool to use and what parameters to pass.
+        OPTIMIZADO: una sola llamada que detecta intención y parámetros.
+        Elimina la doble llamada que causaba el retraso.
         """
-        # Build function schema for OpenAI function calling
-        functions = []
-        for tool in tools:
-            function_def = {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        param: {"type": "string"}
-                        for param in tool.required_params
-                    },
-                    "required": tool.required_params,
-                }
-            }
-            functions.append(function_def)
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": message},
-        ]
-        
-        # For Nvidia API compatibility, try to use function calling if available
+        unified_prompt = self._get_system_prompt(system_prompt)
+
         try:
             completion = self.client.chat.completions.create(
                 model=self.model,
-                messages=messages,
-                functions=functions,
+                messages=[
+                    {"role": "system", "content": unified_prompt},
+                    {"role": "user", "content": message},
+                ],
                 temperature=0.2,
-                max_tokens=500,
+                max_tokens=400,
             )
-            
-            # Parse function call from response
-            response_message = completion.choices[0].message
-            
-            if response_message.function_call:
-                tool_name = response_message.function_call.name
-                params = json.loads(response_message.function_call.arguments)
-                return ToolCall(tool_name=tool_name, params=params)
-        except Exception as e:
-            logger.warning(f"Function calling failed: {e}. Falling back to JSON parsing.")
-        
-        # Fallback: ask AI to return JSON with tool choice
-        tool_descriptions = "\n".join([
-            f"- {tool.name}: {tool.description} (params: {', '.join(tool.required_params)})"
-            for tool in tools
-        ])
-        
-        fallback_prompt = f"""{system_prompt}
 
-Available tools:
-{tool_descriptions}
+            raw = completion.choices[0].message.content or ""
+            raw = raw.replace("```json", "").replace("```", "").strip()
 
-Respond with ONLY a JSON object like this:
-{{
-  "tool": "tool_name_here",
-  "params": {{"param1": "value1", "param2": "value2"}}
-}}
-"""
-        completion = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": fallback_prompt},
-                {"role": "user", "content": message},
-            ],
-            temperature=0.2,
-            max_tokens=500,
-        )
-        
-        raw = completion.choices[0].message.content.strip() if completion.choices[0].message.content else ""
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        
-        # If response is empty or invalid JSON, default to chat tool
-        if not raw:
-            logger.warning("AI returned empty response, defaulting to chat tool")
-            return ToolCall(tool_name="chat", params={})
-        
-        try:
+            if not raw:
+                return ToolCall(tool_name="chat", params={})
+
             data = json.loads(raw)
+            return ToolCall(
+                tool_name=data.get("tool", "chat"),
+                params=data.get("params", {}),
+            )
+
         except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse JSON response '{raw}': {e}. Defaulting to chat tool.")
+            logger.warning(f"JSON parse error: {e}. Defaulting to chat.")
             return ToolCall(tool_name="chat", params={})
-        
-        return ToolCall(
-            tool_name=data.get("tool", "chat"),
-            params=data.get("params", {})
-        )
+        except Exception as e:
+            logger.error(f"AI call failed: {e}")
+            return ToolCall(tool_name="chat", params={"respuesta": f"❌ Error: {e}"})
