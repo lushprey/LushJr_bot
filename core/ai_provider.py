@@ -4,8 +4,8 @@ core/ai_provider.py
 Interfaz abstracta para proveedores de IA.
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, List
 
 
 @dataclass
@@ -36,11 +36,30 @@ class IntentResult:
             respuesta_directa=d.get("respuesta_directa"),
         )
 
+@dataclass    
+class IntentBatch:
+    actions: List[IntentResult] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "IntentBatch":
+
+        if "actions" in data:
+            return cls(
+                actions=[
+                    IntentResult.from_dict(item)
+                    for item in data["actions"]
+                ]
+            )
+
+        return cls(
+            actions=[IntentResult.from_dict(data)]
+        )
+
 
 class AIProvider(ABC):
 
     @abstractmethod
-    def detect_intent(self, message: str, context: dict) -> IntentResult:
+    def detect_intent(self, message: str, context: dict) -> IntentBatch:
         ...
 
     @abstractmethod
