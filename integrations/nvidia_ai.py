@@ -9,7 +9,7 @@ from datetime import datetime
 
 from openai import OpenAI
 
-from core.ai_provider import AIProvider, IntentBatch
+from core.ai_provider import AIProvider, IntentResult
 
 logger = logging.getLogger(__name__)
 
@@ -20,22 +20,18 @@ Hoy es {fecha_hoy} ({dia_semana}).
 
 Tu única tarea es analizar el mensaje del usuario y devolver un JSON con esta estructura exacta:
 
-{
-  "actions": [
-    {
-      "accion": "consultar" | "crear" | "editar" | "eliminar" | "chat",
-      "fecha_inicio": "YYYY-MM-DD",
-      "fecha_fin": "YYYY-MM-DD",
-      "hora_inicio": "HH:MM",
-      "hora_fin": "HH:MM",
-      "titulo": "nombre del evento",
-      "lugar": "lugar del evento",
-      "descripcion": "descripción del evento",
-      "event_id": "id del evento",
-      "respuesta_directa": "texto solo si accion es chat"
-    }
-  ]
-}
+{{
+  "accion": "consultar" | "crear" | "editar" | "eliminar" | "chat",
+  "fecha_inicio": "YYYY-MM-DD",
+  "fecha_fin": "YYYY-MM-DD",
+  "hora_inicio": "HH:MM",
+  "hora_fin": "HH:MM",
+  "titulo": "nombre del evento",
+  "lugar": "lugar del evento",
+  "descripcion": "descripción del evento",
+  "event_id": "id de notion si el usuario lo menciona",
+  "respuesta_directa": "texto solo si accion es chat"
+}}
 
 Reglas:
 - Incluye solo los campos relevantes al mensaje, omite los demás
@@ -49,10 +45,6 @@ Reglas:
 - Si el usuario dice "a las 3pm" → hora_inicio: "15:00"
 - Si el usuario dice "de 2 a 4" → hora_inicio: "14:00", hora_fin: "16:00"
 - SOLO devuelve el JSON, sin explicaciones ni markdown
-- Puedes generar una o varias acciones.
-- Las acciones deben ejecutarse en el orden en que aparecen.
-- Si el usuario pide varias cosas, crea varios elementos dentro de "actions".
-- Si solo hay una acción, igualmente usa "actions".
 """
 
 
@@ -85,7 +77,7 @@ class NvidiaAIProvider(AIProvider):
         raw = raw.replace("```json", "").replace("```", "").strip()
 
         data = json.loads(raw)
-        return IntentBatch.from_dict(data)
+        return IntentResult.from_dict(data)
 
     def chat(self, message: str, system_prompt: str) -> str:
         completion = self.client.chat.completions.create(
