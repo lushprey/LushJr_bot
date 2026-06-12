@@ -10,6 +10,11 @@ Telegram bot with AI integration and calendar management.
 
 ```
 LushJr_bot/
+├── agents/
+│   ├── __init__.py
+│   ├── cache_agent.py
+│   ├── readme_agent.py
+│   └── README.md
 ├── config.yaml
 ├── core/
 │   ├── __init__.py
@@ -30,12 +35,18 @@ LushJr_bot/
 │       └── bot.py
 ├── main.py
 ├── README.md
-├── readme_agent.py
 ├── requirements.txt
 └── test_plugin_system.py
 ```
 
 ## Components
+
+### Agents
+
+- **cache_agent.py** — Automatic cache cleaner (VS Code only)
+- **readme_agent.py** — Automatic README generator
+
+See [agents/README.md](agents/README.md) for detailed agent documentation.
 
 ### Core
 
@@ -80,9 +91,6 @@ LushJr_bot/
 
 - **main.py**
  — main.py
-
-- **readme_agent.py**
- — readme_agent.py
 
 - **test_plugin_system.py**
  — test_plugin_system.py

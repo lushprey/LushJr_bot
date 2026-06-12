@@ -13,6 +13,55 @@ from integrations.base import Tool, CalendarIntegration
 logger = logging.getLogger(__name__)
 
 
+# ─── Date conversion helpers ────────────────────────────────────────────────
+
+def _convert_relative_date(date_str: str) -> str:
+    """
+    Convert relative date strings to ISO 8601 format.
+    Supports Spanish and English relative date keywords.
+    
+    Args:
+        date_str: Date string in various formats
+        
+    Returns:
+        ISO 8601 date string (YYYY-MM-DD)
+    """
+    today = datetime.now().date()
+    date_lower = date_str.lower().strip()
+    
+    # Spanish keywords
+    if date_lower in ("hoy", "today"):
+        return today.isoformat()
+    elif date_lower in ("mañana", "tomorrow"):
+        return (today + timedelta(days=1)).isoformat()
+    elif date_lower in ("ayer", "yesterday"):
+        return (today - timedelta(days=1)).isoformat()
+    elif "semana" in date_lower or "week" in date_lower:
+        # "esta semana" or "this week" → until end of week
+        days_until_sunday = (6 - today.weekday()) % 7
+        if days_until_sunday == 0:
+            days_until_sunday = 7
+        return (today + timedelta(days=days_until_sunday)).isoformat()
+    elif "mes" in date_lower or "month" in date_lower:
+        # "este mes" or "this month" → until end of month
+        if today.month == 12:
+            end_of_month = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end_of_month = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        return end_of_month.isoformat()
+    
+    # Try to parse as ISO 8601 already
+    try:
+        datetime.fromisoformat(date_str)
+        return date_str
+    except ValueError:
+        pass
+    
+    # If nothing matches, return today as fallback
+    logger.warning(f"Could not parse date '{date_str}', using today")
+    return today.isoformat()
+
+
 class QueryEventsToolNotion(Tool):
     """Tool for querying calendar events in a date range."""
     
@@ -38,6 +87,14 @@ class QueryEventsToolNotion(Tool):
             
             if not date_start or not date_end:
                 return "❌ Error: date_start and date_end are required"
+            
+            # Convert relative dates to ISO 8601 format
+            date_start = _convert_relative_date(date_start)
+            date_end = _convert_relative_date(date_end)
+            
+            # Ensure date_end is not before date_start
+            if date_end < date_start:
+                date_end = date_start
             
             events = self.calendar.query_events(date_start, date_end)
             
@@ -92,7 +149,13 @@ class CreateEventToolNotion(Tool):
             if not title or not date_start:
                 return "❌ Error: title and date_start are required"
             
+            # Convert relative dates to ISO 8601 format
+            date_start = _convert_relative_date(date_start)
+            
             date_end = params.get("date_end")
+            if date_end:
+                date_end = _convert_relative_date(date_end)
+            
             time_start = params.get("time_start")
             time_end = params.get("time_end")
             location = params.get("location")
@@ -153,6 +216,13 @@ class UpdateEventToolNotion(Tool):
             title = params.get("title")
             date_start = params.get("date_start")
             date_end = params.get("date_end")
+            
+            # Convert relative dates to ISO 8601 format
+            if date_start:
+                date_start = _convert_relative_date(date_start)
+            if date_end:
+                date_end = _convert_relative_date(date_end)
+            
             time_start = params.get("time_start")
             time_end = params.get("time_end")
             location = params.get("location")

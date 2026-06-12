@@ -5,8 +5,12 @@ Automatic README generator that watches for project file changes.
 Updates README.md automatically with current project structure and documentation.
 
 Usage:
-    python readme_agent.py          # Run once
-    python readme_agent.py --watch  # Watch for changes (Ctrl+C to stop)
+    python -m agents.readme_agent          # Run once
+    python -m agents.readme_agent --watch  # Watch for changes (Ctrl+C to stop)
+    
+    Or directly:
+    python agents/readme_agent.py          # Run once
+    python agents/readme_agent.py --watch  # Watch for changes (Ctrl+C to stop)
 """
 
 import os
@@ -195,7 +199,7 @@ class FileWatcher(FileSystemEventHandler):
     @staticmethod
     def _should_trigger(file_path: str) -> bool:
         """Check if file change should trigger README update."""
-        ignore = {'.env', '.git', '__pycache__', '.vscode'}
+        ignore = {'.env', '.git', '__pycache__', '.vscode', 'agents'}
         path = Path(file_path)
         if any(part in ignore for part in path.parts):
             return False
