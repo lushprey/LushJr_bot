@@ -1,0 +1,55 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "README Agent: Update Now",
+      "type": "shell",
+      "command": "python",
+      "args": ["readme_agent.py"],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "README Agent: Watch Files",
+      "type": "shell",
+      "command": "python",
+      "args": ["readme_agent.py", "--watch"],
+      "isBackground": true,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^👀 Watching.*",
+          "endsPattern": "^.*"
+        }
+      }
+    },
+    {
+      "label": "README Agent: Install Dependencies",
+      "type": "shell",
+      "command": "pip",
+      "args": ["install", "watchdog"],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always"
+      }
+    }
+  ]
+}

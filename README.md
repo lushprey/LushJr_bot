@@ -1,6 +1,6 @@
 # LushJr_bot
 
-_Auto-generated README - Last updated: 2026-06-12 09:57:42_
+_Auto-generated README - Last updated: 2026-06-12 10:44:33_
 
 ## Overview
 
@@ -10,21 +10,29 @@ Telegram bot with AI integration and calendar management.
 
 ```
 LushJr_bot/
+├── config.yaml
 ├── core/
 │   ├── __init__.py
-│   ├── ai_provider.py
-│   ├── data_integration.py
 │   └── processor.py
 ├── integrations/
 │   ├── __init__.py
-│   ├── notion_calendar.py
-│   └── nvidia_ai.py
+│   ├── base.py
+│   ├── calendar_notion/
+│   │   ├── __init__.py
+│   │   ├── directive.py
+│   │   ├── integration.py
+│   │   └── tools.py
+│   ├── core_ai/
+│   │   ├── __init__.py
+│   │   └── provider.py
+│   └── platform_telegram/
+│       ├── __init__.py
+│       └── bot.py
 ├── main.py
-├── platforms/
-│   └── telegram_bot.py
 ├── README.md
 ├── readme_agent.py
-└── requirements.txt
+├── requirements.txt
+└── test_plugin_system.py
 ```
 
 ## Components
@@ -33,10 +41,6 @@ LushJr_bot/
 
 - **__init__.py**
 
-- **ai_provider.py**
-
-- **data_integration.py**
-
 - **processor.py**
 
 
@@ -44,14 +48,32 @@ LushJr_bot/
 
 - **__init__.py**
 
-- **notion_calendar.py**
-
-- **nvidia_ai.py**
+- **base.py**
 
 
-### Platforms
+### Integrations\Calendar_Notion
 
-- **telegram_bot.py**
+- **__init__.py**
+
+- **directive.py**
+
+- **integration.py**
+
+- **tools.py**
+
+
+### Integrations\Core_Ai
+
+- **__init__.py**
+
+- **provider.py**
+
+
+### Integrations\Platform_Telegram
+
+- **__init__.py**
+
+- **bot.py**
 
 
 ### Root
@@ -61,6 +83,9 @@ LushJr_bot/
 
 - **readme_agent.py**
  — readme_agent.py
+
+- **test_plugin_system.py**
+ — test_plugin_system.py
 
 
 ## Dependencies
