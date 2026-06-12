@@ -38,7 +38,7 @@ calendar_notion:
 
 # Core AI (Nvidia)
 core_ai:
-  model: "meta/llama-3.3-70b-instruct"
+  model: "meta/llama-3.3-8b-instruct"
   temperature_intent: 0.2
   temperature_chat: 0.7
   max_tokens_intent: 300
@@ -46,7 +46,7 @@ core_ai:
 
 # Platform Configuration
 
-# Telegram Bot
+# Telegram Bots
 platform_telegram:
   connection_pool_size: 8
   connect_timeout: 30
