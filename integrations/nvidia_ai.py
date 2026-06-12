@@ -85,7 +85,10 @@ class NvidiaAIProvider(AIProvider):
         raw = raw.replace("```json", "").replace("```", "").strip()
 
         data = json.loads(raw)
-        return IntentBatch.from_dict(data)
+        batch = IntentBatch.from_dict(data)
+        print(batch)
+      
+        return batch
 
     def chat(self, message: str, system_prompt: str) -> str:
         completion = self.client.chat.completions.create(
