@@ -6,9 +6,12 @@ Each tool wraps the NotionCalendarIntegration to provide the Tool interface.
 """
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
 
 from integrations.base import Tool, CalendarIntegration
+
+if TYPE_CHECKING:
+    from integrations.core_ai.provider import NvidiaAIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -281,3 +284,29 @@ class DeleteEventToolNotion(Tool):
         except Exception as e:
             logger.error(f"Error deleting event: {e}")
             return f"❌ Error deleting event: {str(e)}"
+
+
+class ChatTool(Tool):
+    """Tool for general conversation and non-calendar queries."""
+    
+    def __init__(self, ai_provider: "NvidiaAIProvider"):
+        self.ai = ai_provider
+    
+    @property
+    def name(self) -> str:
+        return "chat"
+    
+    @property
+    def description(self) -> str:
+        return "Have a general conversation or answer questions not related to calendar events"
+    
+    @property
+    def required_params(self) -> list[str]:
+        return []
+    
+    def execute(self, params: Dict[str, Any]) -> str:
+        """Execute chat - the message is handled by the user's request context."""
+        # This tool is used when the user's message doesn't match calendar tools
+        # The actual message should be available from the context
+        return "Chat response ready (message context required)"
+

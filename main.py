@@ -66,6 +66,11 @@ def build_bot() -> "TelegramBot":
     logger.info("  - Loading calendar integration...")
     calendar_integration, calendar_directive = load_plugin('calendar')
     
+    # Add chat tool to directive now that we have the AI provider
+    from integrations.calendar_notion.tools import ChatTool
+    if not any(tool.name == "chat" for tool in calendar_directive.get_tools()):
+        calendar_directive._tools.append(ChatTool(ai))
+    
     # Create processor (wires AI + directive together)
     logger.info("  - Creating message processor...")
     processor = MessageProcessor(ai=ai, directive=calendar_directive)

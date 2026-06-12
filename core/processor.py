@@ -41,6 +41,12 @@ class MessageProcessor:
             tool_call = self.ai.call_with_tools(message, tools, system_prompt)
             logger.info(f"Tool chosen: {tool_call.tool_name} with params: {tool_call.params}")
             
+            # Handle chat tool specially - use the AI's chat method
+            if tool_call.tool_name == "chat":
+                result = self.ai.chat(message, system_prompt)
+                logger.info(f"Chat result: {result}")
+                return result
+            
             # Find the tool by name
             tool = next((t for t in tools if t.name == tool_call.tool_name), None)
             if tool is None:

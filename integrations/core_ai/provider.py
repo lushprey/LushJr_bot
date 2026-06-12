@@ -175,9 +175,19 @@ Respond with ONLY a JSON object like this:
             max_tokens=500,
         )
         
-        raw = completion.choices[0].message.content.strip()
+        raw = completion.choices[0].message.content.strip() if completion.choices[0].message.content else ""
         raw = raw.replace("```json", "").replace("```", "").strip()
-        data = json.loads(raw)
+        
+        # If response is empty or invalid JSON, default to chat tool
+        if not raw:
+            logger.warning("AI returned empty response, defaulting to chat tool")
+            return ToolCall(tool_name="chat", params={})
+        
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse JSON response '{raw}': {e}. Defaulting to chat tool.")
+            return ToolCall(tool_name="chat", params={})
         
         return ToolCall(
             tool_name=data.get("tool", "chat"),
