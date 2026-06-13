@@ -1,7 +1,8 @@
 # LushJr Bot
 
 A modular, language-agnostic Telegram bot with AI and calendar management.
-Swap any component — AI provider, calendar backend, or messaging platform — by changing one line in `config.yaml`.
+
+The project uses a plugin architecture that allows components to be replaced independently (AI provider, calendar backend, messaging platform) without modifying the core logic.
 
 ---
 
@@ -10,7 +11,6 @@ Swap any component — AI provider, calendar backend, or messaging platform — 
 ```
 LushJr_bot/
 ├── main.py                          # Composition root (wires everything together)
-├── config.yaml                      # Plugin selection & settings
 ├── requirements.txt
 │
 ├── core/
@@ -33,8 +33,7 @@ LushJr_bot/
 │       ├── __init__.py              #   factory → create_platform_bot()
 │       └── bot.py                   #   TelegramBot
 │
-├── agents/                          # Dev-time scripts (not used at runtime)
-│   └── cache_agent.py               #   Cleans __pycache__ (VS Code only)
+├── agents/                          # Development utilities
 │
 └── test_plugin_system.py            # Test suite (no API keys required)
 ```
@@ -44,13 +43,13 @@ LushJr_bot/
 ## Quick start
 
 ```bash
-# 1. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 2. Create .env with your credentials
-cp .env.example .env   # then fill in the values
+# Create .env with your credentials
+cp .env.example .env
 
-# 3. Run
+# Run the bot
 python main.py
 ```
 
@@ -59,71 +58,103 @@ python main.py
 ## Environment variables
 
 ```
-TELEGRAM_TOKEN   — from @BotFather
-NVIDIA_API_KEY   — from build.nvidia.com
+TELEGRAM_TOKEN   — Telegram bot token from @BotFather
+NVIDIA_API_KEY   — NVIDIA API key
 NOTION_TOKEN     — Notion integration token
 DATABASE_ID      — Notion database ID
 ```
 
 ---
 
-## Swapping plugins
+## Plugin architecture
 
-Edit `config.yaml`:
+LushJr separates its responsibilities into independent modules:
 
-```yaml
-plugins:
-  ai:       core_ai            # swap to openai_plugin, anthropic_plugin, etc.
-  calendar: calendar_notion    # swap to calendar_google, calendar_ical, etc.
-  platform: platform_telegram  # swap to platform_discord, platform_whatsapp, etc.
-```
+- **Core** → orchestration logic.
+- **AI provider** → language model integration.
+- **Calendar integration** → event management backend.
+- **Platform integration** → communication channel.
 
-No other file needs to change.
+The core never depends directly on a specific implementation.
 
 ---
 
 ## Adding a new tool
 
-1. Create a class in `integrations/calendar_notion/tools.py` that extends `Tool`.
-2. Register it in `CalendarDirective.__init__()` in `directive.py`.
+1. Create a class extending `Tool`.
+2. Implement the required metadata and `execute()` method.
+3. Register the tool inside the corresponding directive.
+
+Example:
 
 ```python
 class MyNewTool(Tool):
-    name        = "my_tool"
+    name = "my_tool"
     description = "Does something useful."
-    params      = {
-        "input": {"type": "string", "description": "The input", "required": True},
+    params = {
+        "input": {
+            "type": "string",
+            "description": "The input",
+            "required": True,
+        }
     }
 
-    def execute(self, params) -> ToolResult:
+    def execute(self, params):
         result = do_something(params["input"])
-        return ToolResult(success=True, message=result)
+
+        return ToolResult(
+            success=True,
+            message=result,
+        )
 ```
 
 ---
 
-## Adding a new plugin (e.g. Google Calendar)
+## Adding a new plugin
 
-1. Create `integrations/calendar_google/__init__.py` with a `create_calendar_integration()` factory.
-2. Implement `CalendarIntegration` from `integrations/base.py`.
-3. Set `calendar: calendar_google` in `config.yaml`.
+To add a new integration:
+
+1. Create a new folder inside `integrations/`.
+2. Implement the required abstract interfaces from `integrations/base.py`.
+3. Expose a factory function in `__init__.py`.
+4. Register the plugin in the application bootstrap process.
+
+Examples:
+
+- Google Calendar
+- Discord
+- WhatsApp
+- OpenAI
+- Anthropic
 
 ---
 
 ## Chained actions
 
-The AI can execute multiple tools in a single message.
-For example, "delete all events this month" triggers several `delete_event` calls automatically — no extra code needed.
+The AI can execute multiple tools during a single interaction.
 
-The flow:
+Example:
+
 ```
-user message
+"Delete all events this month."
+```
+
+may generate several consecutive tool calls automatically.
+
+Flow:
+
+```
+User message
     ↓
-AI.choose_tools()  →  [ToolCall, ToolCall, ToolCall, …]
+AI.choose_tools()
     ↓
-Execute each in sequence
+[ToolCall, ToolCall, ToolCall]
     ↓
-AI.chat(combined_results)  →  natural-language reply
+Execute tools sequentially
+    ↓
+AI.chat(results)
+    ↓
+Natural-language response
 ```
 
 ---
@@ -134,7 +165,7 @@ AI.chat(combined_results)  →  natural-language reply
 python test_plugin_system.py
 ```
 
-All 8 test sections run without API keys (uses mocks).
+The tests run without external API keys by using mocks.
 
 ---
 
